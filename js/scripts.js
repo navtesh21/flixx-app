@@ -5,7 +5,43 @@ const global = {
       page:1,
       totalPages: 1,
       totalResults:1
-    }
+    },
+    guestSessionId : null,
+    api_key: '2f9e8a399997776527a6fb991b23cd51'
+}
+
+//trying disqus
+function disqus() {
+   const showId = window.location.search.split("=")[1]
+   document.querySelector(".comment").innerHTML = `   <div id="disqus_thread"></div>
+   <script>
+       /**
+       *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+       *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables    */
+       
+       var disqus_config = function () {
+       this.page.url = '${window.location.href}';  // Replace PAGE_URL with your page's canonical URL variable
+       this.page.identifier = '${showId}'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+       };
+       
+       (function() { // DON'T EDIT BELOW THIS LINE
+       var d = document, s = d.createElement('script');
+       s.src = 'https://flixx-app-3.disqus.com/embed.js';
+       s.setAttribute('data-timestamp', +new Date());
+       (d.head || d.body).appendChild(s);
+       })();
+   </script>
+   <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>`
+   
+   console.log("hello")
+
+}
+
+// Function to create a new guest session
+async function createGuestSession() {
+  const response = await fetch(`https://api.themoviedb.org/3/authentication/guest_session/new?api_key=${global.api_key}`);
+  const data = await response.json();
+  global.guestSessionId = data.guest_session_id;
 }
 
 const highLightActiveLink = () => {
@@ -178,9 +214,9 @@ async function getMovieDetails() {
     </div>
     <div>
       <h2>${movie.original_title}</h2>
-      <p>
+      <p class = "rate">
         <i class="fas fa-star text-primary"></i>
-        ${movie.vote_average.toFixed(1)}/ 10
+        ${movie.vote_average.toFixed(1)}/ 10 <i class="fas fa-plus text-primary add-rating" title= "click to add rating"></i>
       </p>
       <p class="text-muted">Release Date: ${movie.release_date}</p>
       <p>
@@ -205,7 +241,51 @@ async function getMovieDetails() {
     <div class="list-group"> ${ toDisplayNames(movie.production_companies).map((gen) => `<span>${gen}</span>`).join()}</div>
   </div> `
   details.appendChild(div)
+  function addRating() {
+    const existingForm = document.querySelector(".rating");
+
+  // Check if the form already exists
+  if (!existingForm) {
+    const rate = document.querySelector(".rate");
+    const form = document.createElement("div");
+    form.classList.add("rating");
+    form.innerHTML = `
+      <form class = "rating-form">
+        <input  placeholder="Add Rating" class="rating-input">
+        <button class="rating-btn">submit</button>
+      </form>
+    `;
+    rate.insertAdjacentElement("afterend", form);
+    void form.offsetWidth;
+    form.style.opacity = 1
+  }
+  document.querySelector(".rating-form").addEventListener("submit",addRatingToData)
+  }
+  document.querySelector(".add-rating").addEventListener("click",addRating)
+  
 }
+
+async function addRatingToData(e){
+  e.preventDefault()
+  const rating = document.querySelector(".rating-input").value
+
+  const movieId = window.location.search.split("=")[1]
+  if(!global.guestSessionId){
+    await createGuestSession()
+  }
+  const result = await fetch(`https://api.themoviedb.org/3/movie/${movieId}/rating?api_key=${global.api_key}&guest_session_id=${global.guestSessionId}`,{
+    method:"POST",
+    headers: {
+      'Content-Type': 'application/json;charset=utf-8',
+    },
+    body: JSON.stringify({value: rating})
+  })
+  const {status_message} = await result.json()
+  alert(status_message);
+  document.querySelector(".rating-input").value = ""
+  document.querySelector(".rating").remove()
+}
+
 
 //add tv show details
 async function getShowDetails() {
@@ -233,9 +313,9 @@ async function getShowDetails() {
   </div>
   <div>
     <h2>${show.original_name}</h2>
-    <p>
+    <p class = "rate">
       <i class="fas fa-star text-primary"></i>
-      ${show.vote_average.toFixed(1)}/ 10
+      ${show.vote_average.toFixed(1)}/ 10 <i class="fas fa-star text-primary add-rating" title= "click to add rating"></i>
     </p>
     <p class="text-muted">First air date: ${show.first_air_date}</p>
     <p>
@@ -260,6 +340,25 @@ async function getShowDetails() {
   <div class="list-group"> ${ toDisplayNames(show.production_companies).map((gen) => `<span>${gen}</span>`).join()}</div>
 </div> `
 details.appendChild(div)
+function addRating() {
+  const existingForm = document.querySelector(".rating");
+
+// Check if the form already exists
+if (!existingForm) {
+  const rate = document.querySelector(".rate");
+  const form = document.createElement("div");
+  form.classList.add("rating");
+  form.innerHTML = `
+    <form class = "rating-form">
+      <input  placeholder="Add Rating" class="rating-input">
+      <button class="rating-btn">submit</button>
+    </form>
+  `;
+  rate.insertAdjacentElement("afterend", form);
+}
+document.querySelector(".rating-form").addEventListener("submit",addRatingToData)
+}
+document.querySelector(".add-rating").addEventListener("click",addRating)
 }
 
 //params
@@ -462,8 +561,14 @@ function init() {
             displayPopularMovies();
             displaySlider();
             break;
+        case "/flixx-app/":
+            displayPopularMovies();
+            displaySlider();
+            
+            break;    
         case "/flixx-app/movie-details.html"  :
             getMovieDetails();
+            disqus();
             break; 
         case "/flixx-app/shows.html":
             displayPopularShows()
