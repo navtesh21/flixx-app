@@ -243,21 +243,28 @@ async function addRatingToData(e){
   e.preventDefault()
   const rating = document.querySelector(".rating-input").value
 
-  const movieId = window.location.search.split("=")[1]
+  const typeId = window.location.search.split("=")[1]
   if(!global.guestSessionId){
     await createGuestSession()
   }
-  const result = await fetch(`https://api.themoviedb.org/3/movie/${movieId}/rating?api_key=${global.api_key}&guest_session_id=${global.guestSessionId}`,{
+  const type = global.currentPage.split("/")[2].split("-")[0]
+  await fetchRate(rating,type,typeId)
+
+  document.querySelector(".rating-input").value = ""
+  document.querySelector(".rating").remove()
+}
+
+async function fetchRate(rating,type,typeId) {
+  const result = await fetch(`https://api.themoviedb.org/3/${type}/${typeId}/rating?api_key=${global.api_key}&guest_session_id=${global.guestSessionId}`,{
     method:"POST",
     headers: {
       'Content-Type': 'application/json;charset=utf-8',
     },
     body: JSON.stringify({value: rating})
   })
+  
   const {status_message} = await result.json()
   alert(status_message);
-  document.querySelector(".rating-input").value = ""
-  document.querySelector(".rating").remove()
 }
 
 
@@ -267,7 +274,7 @@ async function getShowDetails() {
   const show = await fetchApiData(`tv/${showId}`)
   const div = document.createElement("div")
   const details = document.getElementById("show-details")
-  console.log(show)
+
   addBackdropImage("show",show.backdrop_path)
   div.innerHTML= `  <div class="details-top">
   <div>
@@ -289,7 +296,7 @@ async function getShowDetails() {
     <h2>${show.original_name}</h2>
     <p class = "rate">
       <i class="fas fa-star text-primary"></i>
-      ${show.vote_average.toFixed(1)}/ 10 <i class="fas fa-star text-primary add-rating" title= "click to add rating"></i>
+      ${show.vote_average.toFixed(1)}/ 10 <i class="fas fa-plus text-primary add-rating" title= "click to add rating"></i>
     </p>
     <p class="text-muted">First air date: ${show.first_air_date}</p>
     <p>
@@ -329,6 +336,8 @@ if (!existingForm) {
     </form>
   `;
   rate.insertAdjacentElement("afterend", form);
+  void form.offsetWidth;
+  form.style.opacity = 1;
 }
 document.querySelector(".rating-form").addEventListener("submit",addRatingToData)
 }
